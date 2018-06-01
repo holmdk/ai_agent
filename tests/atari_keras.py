@@ -7,7 +7,7 @@
 import gym
 import numpy as np
 import matplotlib.pyplot as plt
-get_ipython().run_line_magic('matplotlib', 'inline')
+#get_ipython().run_line_magic('matplotlib', 'inline')
 
 from keras import layers
 from keras.layers import Input, Dense, Activation, ZeroPadding2D, BatchNormalization, Flatten, Conv2D
@@ -75,7 +75,8 @@ def apply_neural_nets(observation_matrix, weights):
     output_layer_values = sigmoid(output_layer_values)
     return hidden_layer_values, output_layer_values
 
-def choose_action(probability):
+
+def choose_action(probability):   # USE THIS ONE!
     random_value = np.random.uniform()
     if random_value < probability:
         # signifies up in openai gym
@@ -83,7 +84,17 @@ def choose_action(probability):
     else:
          # signifies down in openai gym
         return 3
-
+"""
+        
+def choose_action(probability):
+    #random_value = np.random.uniform()
+    if 0.5 > probability:
+        # signifies up in openai gym
+        return 2
+    else:
+         # signifies down in openai gym
+        return 3
+"""
 def compute_gradient(gradient_log_p, hidden_layer_values, observation_values, weights):
     """ See here: http://neuralnetworksanddeeplearning.com/chap2.html"""
     delta_L = gradient_log_p
@@ -163,10 +174,12 @@ def main():
     
     episode_hidden_layer_values, episode_observations, episode_gradient_log_ps, episode_rewards = [], [], [], []
     
+    train_x_final = []
+    
     fitted = False
     
     while True:
-        #env.render()
+        env.render()
         processed_observations, prev_processed_observations = preprocess_observations(observation, prev_processed_observations, input_dimensions)
         #hidden_layer_values, up_probability = apply_neural_nets(processed_observations, weights
         
@@ -206,32 +219,98 @@ def main():
 
         if done: # an episode finished
             episode_number += 1
-  
-            # Combine the following values for the episode
-            train_x = np.array(episode_observations)
-            train_x = train_x.reshape(train_x.shape + (1,))
-            #episode_rewards = np.array(episode_rewards)
             
-            #episode_actions = np.array(episode_actions)
+            if reward_sum >= 3:
+                if fitted == False:
+                    train_x = np.array(episode_observations)
+                    train_y = np_utils.to_categorical(list(episode_actions))
+                    print('shape trainx pre is {0}' .format(train_x.shape))
+                    print('shape trainx pre after reshape is {0}' .format(train_x.shape))
+                else:
+                    train_x = np.concatenate((train_x, episode_observations))
+                    train_y = np.concatenate((train_y, np_utils.to_categorical(list(episode_actions))))
+                    
+                    print('shape trainx post is {0}' .format(train_x.shape))
+                    
+                train_x_final = train_x.reshape(train_x.shape + (1,))
+                model.fit(train_x_final, train_y, epochs=1, batch_size=32, verbose=1)
+                
+                fitted = True
+                
+                if episode_number == 500:
+                    np.savetxt('train.out', train_x, delimiter=',')
+                    
             
-            train_y = np_utils.to_categorical(list(episode_actions))
+            """
             
-            model.fit(train_x, train_y, epochs=1, batch_size=32, verbose=1)
-            
-            fitted = True
+            if reward_sum >= 2: # only use good training examples 
+                if fitted == False:
+                    train_x = np.array(episode_observations)
+                    train_x = train_x.reshape(train_x.shape + (1,))
+                    train_y = np_utils.to_categorical(list(episode_actions))
+                    saved_obs = episode_observations
+                    saved_actions = episode_actions
+                    #print('shape pre is {0}' .format(train_x.shape))
+                    #print('shape episode pre is {0}' .format(np.array(episode_observations).shape))
+                else:
+                    
+                    print(reward_sum)
+                    print('shape trainx pre is {0}' .format(train_x.shape))
+                    # Combine the following values for the episode
+                    #print('shape episode post is {0}' .format(np.array(episode_observations).shape))
+                    print(np.array(episode_observations).shape)
+                    print(np.array(saved_obs).shape)
+                    saved_obs.append(episode_observations)
+                    saved_actions.append(episode_actions)
+                    print(np.array(saved_obs).shape)
+                    #print('shape post is {0}' .format(np.array(saved_obs).shape))
+                    
+                    train_x = np.array(saved_obs)
+                    print('shape trainx pre is {0}' .format(train_x.shape))
+                    train_x = train_x.reshape(train_x.shape + (1,))
+                    print('shape trainx post is {0}' .format(train_x.shape))
+                    #episode_rewards = np.array(episode_rewards)
+                    
+                    #episode_actions = np.array(episode_actions)
+                    train_y = np_utils.to_categorical(list(saved_actions))
+                      
+                
+                #if episode_number % 10 == 0:
+                
+                model.fit(train_x, train_y, epochs=1, batch_size=32, verbose=1)
+                
+                fitted = True
+                """
+                
+                
+                
+            episode_observations = []
+            episode_actions = []            
 
             observation = env.reset() # reset env
             running_reward = reward_sum if running_reward is None else running_reward * 0.99 + reward_sum * 0.01
             print('resetting env. episode reward total was %.2f. running mean: %.2f' % (reward_sum, running_reward))
             reward_sum = 0
             prev_processed_observations = None
+            
+            
 
 
 # In[15]:
-
-
+""" MISSING LOGIC --> Discounting target
+ for i, (state_b, action_b, reward_b, next_state_b) in enumerate(minibatch):
+            inputs[i:i+1] = state_b
+            target = reward_b
+            if not (next_state_b == np.zeros(state_b.shape)).all(axis=1):
+                target_Q = mainQN.model.predict(next_state_b)[0]
+                target = reward_b + gamma * np.amax(mainQN.model.predict(next_state_b)[0])
+            targets[i] = mainQN.model.predict(state_b)
+            targets[i][action_b] = target
+        mainQN.model.fit(inputs, targets, epochs=1, verbose=0)
+"""
 main()
 
+#https://lilianweng.github.io/lil-log/2018/05/05/implementing-deep-reinforcement-learning-models.html#deep-q-network
 
 # In[ ]:
 
